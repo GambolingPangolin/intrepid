@@ -2,3 +2,5 @@ cradle:
   cabal:
     - path: "src/"
       component: "lib:intrepid"
+    - path: "example/Main.hs"
+      component: "intrepid:exe:intrepid-example"

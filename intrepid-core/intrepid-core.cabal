@@ -1,19 +1,19 @@
 cabal-version:      3.0
-name:               intrepid
+name:               intrepid-core
 version:            0.1.0.0
 license:            BSD-3-Clause
 license-file:       LICENSE
 author:             Ian Shipman
-maintainer:         ics@gambolingpangolin.com
+maintainer:         ics@gambgpang.com
 extra-source-files: CHANGELOG.md
 
 library
-  hs-source-dirs: src/
   default-language: Haskell2010
   ghc-options: -Wall
+  hs-source-dirs: src/
   exposed-modules:
     Intrepid
   build-depends:
-    , base >=4.13 && <4.19
+      base >=4.13 && <4.19
     , these >=1.0 && <2
     , transformers >=0.5 && <0.7

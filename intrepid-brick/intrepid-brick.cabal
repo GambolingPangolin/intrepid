@@ -1,0 +1,43 @@
+cabal-version:      3.0
+name:               intrepid-brick
+version:            0.1.0.0
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Ian Shipman
+maintainer:         ics@gambpang.com
+extra-source-files: CHANGELOG.md
+
+common core
+  default-language: Haskell2010
+  ghc-options: -Wall
+  build-depends:
+    , base >=4.13 && <4.19
+    , brick
+    , these >=1.0 && <2
+    , intrepid-core ^>= 0.1
+    , vty
+
+library
+  import: core
+  hs-source-dirs: src/
+  exposed-modules:
+    Intrepid.Brick
+
+flag build-example
+  description: Build the example executable
+  default: False
+  manual: True
+
+executable intrepid-example
+    import: core
+    hs-source-dirs: example/
+    main-is: Main.hs
+    ghc-options: -threaded
+    build-depends:
+      , intrepid-brick
+      , text ^>=2.0
+
+    if flag(build-example)
+      buildable: True
+    else
+      buildable: False

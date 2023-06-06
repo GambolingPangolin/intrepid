@@ -1,0 +1,9 @@
+packages:
+    ./intrepid-core
+    ./intrepid-brick
+
+package intrepid-core
+  ghc-options: -Werror
+
+package intrepid-brick
+  ghc-options: -Werror
