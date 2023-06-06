@@ -34,13 +34,13 @@ data AppT event view m a
     | Lift (m (AppT event view m a))
     | Free (AppF event view (AppT event view m a))
 
-instance Functor m => Functor (AppT e v m) where
+instance (Functor m) => Functor (AppT e v m) where
     fmap f = \case
         Pure a -> Pure $ f a
         Lift ma -> Lift $ fmap f <$> ma
         Free ff -> Free $ fmap f <$> ff
 
-instance Applicative m => Applicative (AppT e v m) where
+instance (Applicative m) => Applicative (AppT e v m) where
     pure = Pure
     Pure f <*> y = f <$> y
     Lift mf <*> Pure x = Lift $ (<*> pure x) <$> mf
@@ -48,7 +48,7 @@ instance Applicative m => Applicative (AppT e v m) where
     ff <*> Free fx = Free $ (ff <*>) <$> fx
     Free ff <*> fx = Free $ (<*> fx) <$> ff
 
-instance Monad m => Monad (AppT e v m) where
+instance (Monad m) => Monad (AppT e v m) where
     return = pure
     Pure x >>= f = f x
     Lift mx >>= f = Lift $ (>>= f) <$> mx
@@ -58,7 +58,7 @@ instance MonadTrans (AppT e v) where
     lift = Lift . fmap Pure
 
 -- | Handle a single event
-update :: Monad m => AppT e v m a -> e -> m (AppT e v m a)
+update :: (Monad m) => AppT e v m a -> e -> m (AppT e v m a)
 update app e = case app of
     Free (Match _ k) | Just nextApp <- k e -> pure nextApp
     Lift mx -> mx >>= (`update` e)
@@ -66,7 +66,7 @@ update app e = case app of
 
 -- | Simple framework for running an intrepid app
 runAppT ::
-    Monad m =>
+    (Monad m) =>
     -- | Event polling action where 'Nothing' represents the end of the event stream
     m (Maybe e) ->
     -- | View handler
@@ -86,15 +86,15 @@ runAppT getEvent putView = run
 {- | Attach an event listener to a view value.  The resulting application has
  the specified view and blocks until the match function returns 'Just'.
 -}
-match :: Applicative m => v -> (e -> Maybe a) -> AppT e v m a
+match :: (Applicative m) => v -> (e -> Maybe a) -> AppT e v m a
 match v handleE = Free $ Match v (fmap pure . handleE)
 
 -- | Create an app with the given view that ignores all events
-static :: Applicative m => v -> AppT e v m a
+static :: (Applicative m) => v -> AppT e v m a
 static v = match v $ const Nothing
 
 -- | Modify all views within the application
-vmap :: Functor m => (v1 -> v2) -> AppT e v1 m a -> AppT e v2 m a
+vmap :: (Functor m) => (v1 -> v2) -> AppT e v1 m a -> AppT e v2 m a
 vmap f app = case app of
     Free (Match v k) -> Free . Match (f v) $ fmap (vmap f) . k
     Lift mx -> Lift $ vmap f <$> mx
@@ -105,7 +105,7 @@ vmap f app = case app of
  left.
 -}
 combine ::
-    Applicative m =>
+    (Applicative m) =>
     (v -> v -> v) ->
     AppT e v m a ->
     AppT e v m b ->
@@ -125,7 +125,7 @@ combine binop (Free (Match vA kA)) (Free (Match vB kB)) =
  subapplications.  Combining an empty collection results in a static application
  with view @mergeFunction mempty@.
 -}
-combineMany :: Applicative m => ([v] -> v) -> [AppT e v m a] -> AppT e v m a
+combineMany :: (Applicative m) => ([v] -> v) -> [AppT e v m a] -> AppT e v m a
 combineMany merge apps
     | x0 : xs <- vmap pure <$> apps = vmap merge $ foldl' step x0 xs
     | otherwise = static $ merge mempty
@@ -134,7 +134,7 @@ combineMany merge apps
 
 -- | Run the application until a view is available, if possible.
 view ::
-    Monad m =>
+    (Monad m) =>
     AppT e v m a ->
     -- | View and remaining application logic
     m (Maybe v, AppT e v m a)
