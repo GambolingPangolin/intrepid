@@ -18,10 +18,11 @@ module Intrepid (
     view,
 ) where
 
-import Control.Applicative ((<|>))
+import Control.Applicative (liftA2, (<|>))
 import Control.Monad (unless)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.List (foldl')
+import Data.These (These (..), these)
 
 data AppF e v a = Match v (e -> Maybe a)
 
@@ -109,28 +110,37 @@ combine ::
     (v -> v -> v) ->
     AppT e v m a ->
     AppT e v m b ->
-    AppT e v m (Either a b)
-combine _ (Pure x) _ = Pure $ Left x
-combine _ _ (Pure y) = Pure $ Right y
-combine binop (Lift mx) appB =
-    Lift $ combine binop <$> mx <*> pure appB
-combine binop appA (Lift my) =
-    Lift $ combine binop appA <$> my
-combine binop (Free (Match vA kA)) (Free (Match vB kB)) =
-    Free $ Match (vA `binop` vB) k
-  where
-    k e = fmap Left <$> kA e <|> fmap Right <$> kB e
+    AppT e v m (These a b)
+combine = \cases
+    _ (Pure x) (Pure y) -> Pure $ These x y
+    _ (Pure x) _ -> Pure $ This x
+    _ _ (Pure y) -> Pure $ That y
+    binop (Lift mx) appB ->
+        Lift $ combine binop <$> mx <*> pure appB
+    binop appA (Lift my) ->
+        Lift $ combine binop appA <$> my
+    binop (Free (Match vA kA)) (Free (Match vB kB)) ->
+        Free $ Match (vA `binop` vB) k
+      where
+        k e = liftA2 These <$> kA e <*> kB e <|> fmap This <$> kA e <|> fmap That <$> kB e
 
 {- | Use the specified combining function to merge a collection of
  subapplications.  Combining an empty collection results in a static application
  with view @mergeFunction mempty@.
 -}
-combineMany :: (Applicative m) => ([v] -> v) -> [AppT e v m a] -> AppT e v m a
-combineMany merge apps
+combineMany ::
+    (Applicative m) =>
+    -- Combine values when two components produce events
+    (a -> a -> a) ->
+    -- Combine views from all components
+    ([v] -> v) ->
+    [AppT e v m a] ->
+    AppT e v m a
+combineMany binop merge apps
     | x0 : xs <- vmap pure <$> apps = vmap merge $ foldl' step x0 xs
     | otherwise = static $ merge mempty
   where
-    step accum x = either id id <$> combine (<>) accum x
+    step accum x = these id id binop <$> combine (<>) accum x
 
 -- | Run the application until a view is available, if possible.
 view ::

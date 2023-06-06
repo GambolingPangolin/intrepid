@@ -1,4 +1,4 @@
-cabal-version:      2.4
+cabal-version:      3.0
 name:               intrepid
 version:            0.1.0.0
 license:            BSD-3-Clause
@@ -14,5 +14,6 @@ library
   exposed-modules:
     Intrepid
   build-depends:
-      base >=4.13 && <4.19
+    , base >=4.13 && <4.19
+    , these >=1.0 && <2
     , transformers >=0.5 && <0.7
