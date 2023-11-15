@@ -1,6 +1,10 @@
 cradle:
   cabal:
-    - path: "src/"
-      component: "lib:intrepid"
-    - path: "example/Main.hs"
-      component: "intrepid:exe:intrepid-example"
+    - path: "./intrepid-brick/src/"
+      component: "lib:intrepid-brick"
+
+    - path: "./intrepid-brick/example/Main.hs"
+      component: "intrepid-brick:exe:intrepid-example"
+
+    - path: "./intrepid-core/src/"
+      component: "lib:intrepid-core"
