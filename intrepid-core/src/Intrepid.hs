@@ -1,16 +1,20 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Intrepid (
+    -- * Core API
     AppT,
-
-    -- * Building
     match,
-    attach,
-    matchManyWith,
     static,
+
+    -- ** Working with views
     combine,
     combineMany,
     vmap,
+
+    -- ** Working with events
+    emap,
+    attach,
+    matchManyWith,
 
     -- * Running
     runAppT,
@@ -21,6 +25,7 @@ module Intrepid (
 ) where
 
 import Control.Applicative ((<|>))
+import Control.Monad ((<=<))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.List (foldl')
@@ -119,6 +124,13 @@ matchManyWith ::
 matchManyWith op = fmap (foldl' step Nothing . catMaybes) . sequenceA
   where
     step acc x = op <$> acc <*> pure x <|> Just x
+
+-- | Modify the event type handled by the component
+emap :: (Functor m) => (eB -> Maybe eA) -> AppT eA v m a -> AppT eB v m a
+emap f = \case
+    Match v k -> Match v $ fmap (emap f) . (k <=< f)
+    Lift mx -> Lift $ emap f <$> mx
+    Pure x -> Pure x
 
 theseEvents ::
     (e -> Maybe a) ->

@@ -14,17 +14,28 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.These (These (..))
 import Graphics.Vty (Event (EvKey), Key (KChar))
-import Intrepid (AppT, attach, combine, match, vmap)
+import Intrepid (AppT, attach, combine, emap, match, vmap)
+import Intrepid.Brick (IntrepidView)
 import qualified Intrepid.Brick as IB
 
 main :: IO ()
 main =
     void $
         Brick.defaultMain @()
-            (IB.getBrickApp $ vmap IB.widget app)
+            (IB.getBrickApp $ adaptApp app)
             IB.nullState
 
-app :: (Monad m) => AppT (BrickEvent n e) (Widget n) m ()
+adaptApp ::
+    (Functor m) =>
+    AppT Key (Widget n) m () ->
+    AppT (BrickEvent n e) (IntrepidView n e) m ()
+adaptApp = emap getKey . vmap IB.widget
+  where
+    getKey = \case
+        VtyEvent (EvKey k _) -> Just k
+        _ -> Nothing
+
+app :: (Monad m) => AppT Key (Widget n) m ()
 app = do
     void $ match (panel "Hello!") anyChar
     loop
@@ -36,7 +47,7 @@ app = do
                 _ -> pure ()
     switches = void $ combine (<+>) (mkApp 'a') (mkApp 'b')
 
-attempts :: (Monad m) => AppT (BrickEvent n e) (Widget n) m ()
+attempts :: (Monad m) => AppT Key (Widget n) m ()
 attempts = loop mempty
   where
     loop xs =
@@ -48,7 +59,7 @@ attempts = loop mempty
         panel . Text.pack $
             "Last 10 attempts: " <> (L.intersperse ',' . reverse) xs
 
-mkApp :: (Monad m) => Char -> AppT (BrickEvent n e) (Widget n) m b
+mkApp :: (Monad m) => Char -> AppT Key (Widget n) m b
 mkApp c = forever $ stage stageOn c >> stage stageOff c
   where
     stageOn = Text.pack $ "on (" <> [c] <> ")"
@@ -59,20 +70,20 @@ stage ::
     (Applicative m) =>
     Text ->
     Char ->
-    AppT (BrickEvent n e) (Widget n) m ()
+    AppT Key (Widget n) m ()
 stage stageName = match (panel stageName) . char
 
 panel :: Text -> Widget n
 panel = Brick.joinBorders . border . center . Brick.txt
 
 -- | Event filter matching any keypress resulting in a 'Char'
-anyChar :: BrickEvent n e -> Maybe Char
+anyChar :: Key -> Maybe Char
 anyChar = \case
-    VtyEvent (EvKey (KChar k) []) -> Just k
+    KChar k -> Just k
     _ -> Nothing
 
 -- | Event filter matching a specific character keypress
-char :: Char -> BrickEvent n e -> Maybe ()
+char :: Char -> Key -> Maybe ()
 char c = \case
-    VtyEvent (EvKey (KChar k) []) | k == c -> Just ()
+    KChar k | k == c -> Just ()
     _ -> Nothing
