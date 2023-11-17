@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Intrepid (
     -- * Core API
@@ -15,6 +16,9 @@ module Intrepid (
     emap,
     attach,
     matchManyWith,
+
+    -- ** Base monad
+    hoistAppT,
 
     -- * Running
     runAppT,
@@ -62,6 +66,12 @@ instance MonadTrans (AppT e v) where
 
 instance (MonadIO m) => MonadIO (AppT e v m) where
     liftIO = lift . liftIO
+
+hoistAppT :: Functor n => (forall x. m x -> n x) -> AppT e v m a -> AppT e v n a
+hoistAppT f = \case
+    Match v k -> Match v $ fmap (hoistAppT f) . k
+    Lift mx -> Lift $ hoistAppT f <$> f mx
+    Pure x -> Pure x
 
 -- | Handle a single event
 update :: (Monad m) => AppT e v m a -> e -> m (AppT e v m a)
