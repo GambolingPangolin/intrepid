@@ -11,6 +11,7 @@ module Intrepid (
     combine,
     combineMany,
     vmap,
+    vap,
 
     -- ** Working with events
     emap,
@@ -19,6 +20,9 @@ module Intrepid (
 
     -- ** Base monad
     hoistAppT,
+
+    -- ** Common patterns
+    local,
 
     -- * Running
     runAppT,
@@ -29,7 +33,7 @@ module Intrepid (
 ) where
 
 import Control.Applicative ((<|>))
-import Control.Monad ((<=<))
+import Control.Monad ((<=<), (>=>))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.List (foldl')
@@ -67,7 +71,11 @@ instance MonadTrans (AppT e v) where
 instance (MonadIO m) => MonadIO (AppT e v m) where
     liftIO = lift . liftIO
 
-hoistAppT :: Functor n => (forall x. m x -> n x) -> AppT e v m a -> AppT e v n a
+hoistAppT ::
+    (Functor n) =>
+    (forall x. m x -> n x) ->
+    AppT e v m a ->
+    AppT e v n a
 hoistAppT f = \case
     Match v k -> Match v $ fmap (hoistAppT f) . k
     Lift mx -> Lift $ hoistAppT f <$> f mx
@@ -163,16 +171,24 @@ vmap f app = case app of
     Lift mx -> Lift $ vmap f <$> mx
     Pure x -> Pure x
 
+-- | A variant of '<*>' for the view parameter
+vap ::
+    (Applicative m) =>
+    AppT e (u -> v) m a ->
+    AppT e u m b ->
+    AppT e v m (These a b)
+vap = combine ($)
+
 {- | Merge two applications by combining their views using the given operation.
  The application blocks until one of the input applications returns, biasing
  left.
 -}
 combine ::
     (Applicative m) =>
-    (v -> v -> v) ->
-    AppT e v m a ->
+    (u -> v -> w) ->
+    AppT e u m a ->
     AppT e v m b ->
-    AppT e v m (These a b)
+    AppT e w m (These a b)
 combine op = \cases
     (Pure x) (Pure y) -> Pure $ These x y
     (Pure x) _ -> Pure $ This x
@@ -214,3 +230,17 @@ view = \case
     app@(Match v _) -> pure $ Left (v, app)
     Lift mapp -> mapp >>= view
     Pure x -> pure $ Right x
+
+-- | This function helps create a view with some internal state
+local ::
+    (Monad m) =>
+    -- | Update the value given an event or produce a value
+    (a -> e -> Maybe (Either b a)) ->
+    -- | Render the view
+    (a -> v) ->
+    -- | Initial value
+    a ->
+    AppT e v m b
+local getValue renderValue = loop
+  where
+    loop = (match <$> renderValue <*> getValue) >=> either pure loop
