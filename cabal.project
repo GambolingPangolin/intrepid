@@ -7,3 +7,4 @@ package intrepid-core
 
 package intrepid-brick
   ghc-options: -Werror
+  flags: +build-example
